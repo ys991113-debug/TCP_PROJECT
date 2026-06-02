@@ -1,5 +1,8 @@
 *.o
 *.so
 *.log
-server
-client
+src/server/server
+src/client/client
+
+
+
