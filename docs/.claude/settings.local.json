@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir -p /home/lys/project/include /home/lys/project/src/server /home/lys/project/src/devices /home/lys/project/src/client /home/lys/project/web /home/lys/project/scripts)",
+      "Bash(touch /home/lys/project/include/proto.h /home/lys/project/include/device.h /home/lys/project/include/state.h /home/lys/project/include/net.h /home/lys/project/src/server/main.c /home/lys/project/src/server/loader.c /home/lys/project/src/server/net.c /home/lys/project/src/server/proto.c /home/lys/project/src/server/dispatch.c /home/lys/project/src/server/state.c /home/lys/project/src/server/sensor_thread.c /home/lys/project/src/server/display_thread.c /home/lys/project/src/server/buzzer_thread.c /home/lys/project/src/server/camera_thread.c /home/lys/project/src/devices/led.c /home/lys/project/src/devices/buzzer.c /home/lys/project/src/devices/light.c /home/lys/project/src/devices/seg.c /home/lys/project/src/devices/cam.c /home/lys/project/src/client/client.c /home/lys/project/web/index.html /home/lys/project/web/app.js /home/lys/project/web/bridge.py /home/lys/project/scripts/devctl.service /home/lys/project/scripts/install.sh /home/lys/project/Makefile)"
+    ]
+  }
+}
