@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>조도 실시간 모니터</title>
+    <script src="chart.umd.min.js"></script>
+    <style>
+        body {
+            background: #1a1a1a;
+            color: white;
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+        h1 { margin-bottom: 20px; }
+        canvas { background: #2a2a2a; border-radius: 10px; }
+        #value {
+            font-size: 48px;
+            margin: 20px;
+            color: #ffcc00;
+        }
+        #status {
+            color: #888;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>💡 조도 실시간 모니터</h1>
+    <p id="status">연결 중...</p>
+    <div id="value">-</div>
+    <canvas id="chart" width="600" height="300"></canvas>
+
+    <script>
+        const ctx = document.getElementById('chart').getContext('2d');
+        const labels = [];
+        const data = [];
+
+        const chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: '조도값',
+                    data: data,
+                    borderColor: '#ffcc00',
+                    backgroundColor: 'rgba(255,204,0,0.1)',
+                    tension: 0.3,
+                    fill: true
+                }]
+            },
+            options: {
+                animation: false,
+                scales: {
+                    y: {
+                        min: 0,
+                        max: 255,
+                        ticks: { color: 'white' },
+                        grid: { color: '#333' }
+                    },
+                    x: {
+                        ticks: { color: 'white' },
+                        grid: { color: '#333' }
+                    }
+                },
+                plugins: {
+                    legend: { labels: { color: 'white' } }
+                }
+            }
+        });
+
+        // WebSocket 연결
+        const ws = new WebSocket('ws://100.83.88.7:8000');
+
+        ws.onopen = () => {
+            document.getElementById('status').textContent = '✅ 연결됨';
+        };
+
+        ws.onmessage = (event) => {
+            const res = JSON.parse(event.data);
+            if(res.ok && res.cmd === 'LIGHT') {
+                const val = res.data.value;
+                const time = new Date().toLocaleTimeString();
+
+                // 값 표시
+                document.getElementById('value').textContent = val;
+
+                // 그래프 추가
+                labels.push(time);
+                data.push(val);
+
+                // 최대 30개만 표시
+                if(labels.length > 30) {
+                    labels.shift();
+                    data.shift();
+                }
+                chart.update();
+            }
+        };
+
+        ws.onclose = () => {
+            document.getElementById('status').textContent = '❌ 연결 끊김';
+        };
+    </script>
+</body>
+</html>
