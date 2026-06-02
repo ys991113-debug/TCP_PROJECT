@@ -3,6 +3,6 @@
 *.log
 src/server/server
 src/client/client
-
+lib/*.so
 
 
