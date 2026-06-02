@@ -62,6 +62,7 @@ int main(void) {
     // .so 로드
     load_device("./lib/libdev_led.so");
     load_device("./lib/libdev_light.so");
+    load_device("./lib/libdev_seg.so");
     if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
         perror("socket"); exit(1);
     }

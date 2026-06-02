@@ -51,6 +51,10 @@ int parse_request(const char *json, char *cmd, char *state, char *level, int *id
         } else if(jsoneq(json, &tokens[i], "level") == 0 && level) {
             json_get_str(json, &tokens[i+1], level, 16);
             i++;
+        } else if(jsoneq(json, &tokens[i], "value") == 0) {
+            char tmp[16];
+            json_get_str(json, &tokens[i+1], tmp, 16);
+            i++;
         }
     }
     return 0;
