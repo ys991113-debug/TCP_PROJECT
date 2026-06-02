@@ -63,6 +63,8 @@ int main(void) {
     load_device("./lib/libdev_led.so");
     load_device("./lib/libdev_light.so");
     load_device("./lib/libdev_seg.so");
+    load_device("./lib/libdev_buzzer.so");
+    
     if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
         perror("socket"); exit(1);
     }
