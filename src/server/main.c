@@ -15,14 +15,38 @@
 int  load_device(const char *path);
 int  dispatch(const msg_t *msg, char *resp, size_t n);
 void unload_all(void);
-int  parse_request(const char *json, char *cmd, char *state, char *level, int *id);
+int  parse_request(const char *json, char *cmd, char *state, char *level,int *value,int *id);
+void *countdown_thread(void *arg) {
+      int sec = *(int *)arg;
+      free(arg);
+
+      char resp[256];
+      msg_t m;
+
+      for(int i = sec; i >= 0; i--) {
+          memset(&m, 0, sizeof(m));   // 매번 깨끗이
+          strcpy(m.cmd, "SEG");
+          m.value = i;
+          dispatch(&m, resp, sizeof(resp));   // 7세그에 i 표시
+          sleep(1);
+      }
+
+      // 0 도달 → 부저 ON (학교종)
+      memset(&m, 0, sizeof(m));
+      strcpy(m.cmd, "BUZZER");
+      strcpy(m.state, "ON");
+      dispatch(&m, resp, sizeof(resp));
+
+      return NULL;
+}
+
 
 void *handle_client(void *arg) {
     int client_fd = *(int *)arg;
     free(arg);
     char buf[4096];
     char resp[4096];
-    msg_t msg;
+    msg_t msg={0};
     int n;
 
     while(1) {
@@ -36,12 +60,34 @@ void *handle_client(void *arg) {
         printf("수신: %s\n", buf);
 
         // JSON 파싱
-        if(parse_request(buf, msg.cmd, msg.state, msg.level, &msg.id) < 0) {
+        if(parse_request(buf, msg.cmd, msg.state, msg.level, &msg.value,&msg.id) < 0) {
             snprintf(resp, sizeof(resp),
                 "{\"ok\":false,\"error\":\"BAD_JSON\",\"id\":0}\n");
             send(client_fd, resp, strlen(resp), 0);
             continue;
         }
+
+          // COUNTDOWN은 디바이스가 아니라 서버가 직접 처리
+        if(strcmp(msg.cmd, "COUNTDOWN") == 0) {
+            if(msg.value < 0 || msg.value > 9) {
+                snprintf(resp, sizeof(resp),
+                    "{\"ok\":false,\"cmd\":\"COUNTDOWN\",\"error\":\"BAD_ARG\","
+                    "\"message\":\"value must be 0~9\",\"id\":%d}\n", msg.id);
+                send(client_fd, resp, strlen(resp), 0);
+                continue;
+            }
+              int *sec = malloc(sizeof(int));
+              *sec = msg.value;
+              pthread_t ct;
+              pthread_create(&ct, NULL, countdown_thread, sec);
+              pthread_detach(ct);
+
+              snprintf(resp, sizeof(resp),
+                  "{\"ok\":true,\"cmd\":\"COUNTDOWN\",\"data\":{\"value\":%d},\"id\":%d}\n",
+                  msg.value, msg.id);
+              send(client_fd, resp, strlen(resp), 0);
+              continue;
+          }
 
         // dispatch → .so 호출
         dispatch(&msg, resp, sizeof(resp));
@@ -64,7 +110,7 @@ int main(void) {
     load_device("./lib/libdev_light.so");
     load_device("./lib/libdev_seg.so");
     load_device("./lib/libdev_buzzer.so");
-    
+
     if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
         perror("socket"); exit(1);
     }

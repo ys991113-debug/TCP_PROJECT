@@ -23,42 +23,35 @@ void json_get_str(const char *json, jsmntok_t *tok, char *out, size_t n) {
 }
 
 // JSON 파싱 → cmd, state 추출
-int parse_request(const char *json, char *cmd, char *state, char *level, int *id) {
-    jsmn_parser p;
-    jsmntok_t tokens[32];
+  int parse_request(const char *json, char *cmd, char *state, char *level, int *value, int *id) {
+      jsmn_parser p;
+      jsmntok_t tokens[32];
 
-    jsmn_init(&p);
-    int r = jsmn_parse(&p, json, strlen(json), tokens, 32);
-    if(r < 0) return -1;
+      jsmn_init(&p);
+      int r = jsmn_parse(&p, json, strlen(json), tokens, 32);
+      if(r < 0) return -1;
 
-    *id = 0;
-    cmd[0] = '\0';
-    state[0] = '\0';
-    if(level) level[0] = '\0';
+      *id = 0;
+      *value = 0;            // ← 초기화
+      cmd[0] = '\0';
+      state[0] = '\0';
+      if(level) level[0] = '\0';
 
-    for(int i = 1; i < r; i++) {
-        if(jsoneq(json, &tokens[i], "cmd") == 0) {
-            json_get_str(json, &tokens[i+1], cmd, 32);
-            i++;
-        } else if(jsoneq(json, &tokens[i], "id") == 0) {
-            char tmp[16];
-            json_get_str(json, &tokens[i+1], tmp, 16);
-            *id = atoi(tmp);
-            i++;
-        } else if(jsoneq(json, &tokens[i], "state") == 0) {
-            json_get_str(json, &tokens[i+1], state, 16);
-            i++;
-        } else if(jsoneq(json, &tokens[i], "level") == 0 && level) {
-            json_get_str(json, &tokens[i+1], level, 16);
-            i++;
-        } else if(jsoneq(json, &tokens[i], "value") == 0) {
-            char tmp[16];
-            json_get_str(json, &tokens[i+1], tmp, 16);
-            i++;
-        }
-    }
-    return 0;
-}
+      for(int i = 1; i < r; i++) {
+          if(jsoneq(json, &tokens[i], "cmd") == 0) {
+              json_get_str(json, &tokens[i+1], cmd, 32); i++;
+          } else if(jsoneq(json, &tokens[i], "id") == 0) {
+              char tmp[16]; json_get_str(json, &tokens[i+1], tmp, 16); *id = atoi(tmp); i++;
+          } else if(jsoneq(json, &tokens[i], "state") == 0) {
+              json_get_str(json, &tokens[i+1], state, 16); i++;
+          } else if(jsoneq(json, &tokens[i], "level") == 0 && level) {
+              json_get_str(json, &tokens[i+1], level, 16); i++;
+          } else if(jsoneq(json, &tokens[i], "value") == 0) {
+              char tmp[16]; json_get_str(json, &tokens[i+1], tmp, 16); *value = atoi(tmp); i++;  // ← 저장!
+          }
+      }
+      return 0;
+  }
 
 // 성공 응답 생성
 void build_ok(char *out, size_t n, const char *cmd, const char *data, int id) {
