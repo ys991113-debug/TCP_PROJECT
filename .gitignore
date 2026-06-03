@@ -6,3 +6,5 @@ src/client/client
 lib/*.so
 
 
+/client
+web/webserver
