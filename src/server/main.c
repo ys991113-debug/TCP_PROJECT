@@ -7,6 +7,9 @@
 #include <arpa/inet.h>
 #include <wiringPi.h>
 #include <pthread.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <signal.h>
 #include "../../include/device.h"
 
 #define PORT 1833
@@ -16,6 +19,37 @@ int  load_device(const char *path);
 int  dispatch(const msg_t *msg, char *resp, size_t n);
 void unload_all(void);
 int  parse_request(const char *json, char *cmd, char *state, char *level,int *value,int *id);
+
+  void daemonize(void) {
+      pid_t pid = fork();
+      if (pid < 0) exit(1);
+      if (pid > 0) exit(0);       // 부모 종료
+
+      setsid();                    // 새 세션
+      signal(SIGHUP, SIG_IGN);
+      chdir("/home/lys/project");                  // 루트로 이동
+
+      // stdin → /dev/null
+      int fd = open("/dev/null", O_RDWR);
+      dup2(fd, STDIN_FILENO);
+      close(fd);
+
+      // stdout/stderr → 로그파일
+      int log = open("/tmp/tcpserver.log",
+                     O_WRONLY | O_CREAT | O_APPEND, 0644);
+      dup2(log, STDOUT_FILENO);
+      dup2(log, STDERR_FILENO);
+      close(log);
+
+      // PID 파일
+      FILE *f = fopen("/tmp/tcpserver.pid", "w");
+      if (f) { fprintf(f, "%d\n", getpid()); fclose(f); }
+
+      printf("[daemon] 시작 PID=%d\n", getpid());
+      fflush(stdout);
+    setvbuf(stdout, NULL, _IONBF, 0);
+  }
+
 void *countdown_thread(void *arg) {
       int sec = *(int *)arg;
       free(arg);
@@ -103,13 +137,13 @@ int main(void) {
     socklen_t sin_size;
     pthread_t tid;
 
+    daemonize();
     wiringPiSetup();
-
     // .so 로드
-    load_device("./lib/libdev_led.so");
-    load_device("./lib/libdev_light.so");
-    load_device("./lib/libdev_seg.so");
-    load_device("./lib/libdev_buzzer.so");
+    load_device("/home/lys/project/lib/libdev_led.so");
+    load_device("/home/lys/project/lib/libdev_light.so");
+    load_device("/home/lys/project/lib/libdev_seg.so");
+    load_device("/home/lys/project/lib/libdev_buzzer.so");
 
     if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
         perror("socket"); exit(1);
