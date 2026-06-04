@@ -12,7 +12,9 @@
 #include <signal.h>
 #include "../../include/device.h"
 
-#define PORT 1833
+  #define PORT 1833
+  #define LIGHT_THRESHOLD 180
+  static volatile int auto_running = 0;
 
 // loader.c / proto.c 함수 선언
 int  load_device(const char *path);
@@ -49,7 +51,30 @@ int  parse_request(const char *json, char *cmd, char *state, char *level,int *va
       fflush(stdout);
     setvbuf(stdout, NULL, _IONBF, 0);
   }
-
+  void *auto_thread(void *arg) {
+      char resp[256];
+      msg_t m;
+      int last = -1;
+      while(auto_running) {
+          memset(&m, 0, sizeof(m));
+          strcpy(m.cmd, "LIGHT");
+          dispatch(&m, resp, sizeof(resp));
+          int light = 0;
+          char *p = strstr(resp, "\"value\":");
+          if(p) light = atoi(p + 8);
+          printf("[AUTO] light=%d\n", light);
+          int want = (light > LIGHT_THRESHOLD) ? 1 : 0;
+          if(want != last) {
+              memset(&m, 0, sizeof(m));
+              strcpy(m.cmd, "LED");
+              strcpy(m.state, want ? "ON" : "OFF");
+              dispatch(&m, resp, sizeof(resp));
+              last = want;
+          }
+          sleep(1);
+      }
+      return NULL;
+  }
 void *countdown_thread(void *arg) {
       int sec = *(int *)arg;
       free(arg);
@@ -100,6 +125,33 @@ void *handle_client(void *arg) {
             send(client_fd, resp, strlen(resp), 0);
             continue;
         }
+
+        if(strcmp(msg.cmd, "AUTO") == 0) {
+            if(strcmp(msg.state, "ON") == 0) {
+                if(!auto_running) {
+                    auto_running = 1;
+                    pthread_t at;
+                    pthread_create(&at, NULL, auto_thread, NULL);
+                    pthread_detach(at);
+                  }
+                  snprintf(resp, sizeof(resp),
+                      "{\"ok\":true,\"cmd\":\"AUTO\","
+                      "\"data\":{\"state\":\"ON\"},\"id\":%d}\n", msg.id);
+              } else if(strcmp(msg.state, "OFF") == 0) {
+                  auto_running = 0;
+                  snprintf(resp, sizeof(resp),
+                      "{\"ok\":true,\"cmd\":\"AUTO\","
+                      "\"data\":{\"state\":\"OFF\"},\"id\":%d}\n", msg.id);
+              } else {
+                  snprintf(resp, sizeof(resp),
+                      "{\"ok\":false,\"cmd\":\"AUTO\","
+                      "\"error\":\"BAD_ARG\","
+                      "\"message\":\"state must be ON|OFF\","
+                      "\"id\":%d}\n", msg.id);
+              }
+              send(client_fd, resp, strlen(resp), 0);
+              continue;
+          }
 
           // COUNTDOWN은 디바이스가 아니라 서버가 직접 처리
         if(strcmp(msg.cmd, "COUNTDOWN") == 0) {
