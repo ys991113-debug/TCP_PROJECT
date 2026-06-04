@@ -12,7 +12,7 @@ SOS     = $(addprefix cross/libdev_,$(addsuffix .so,$(DEVICES)))
 
 all: cross client web
 
-cross: $(SOS) cross/server
+cross: $(SOS) cross/server cross/webserver
 
 cross/libdev_%.so: src/devices/%.c
 	  $(CC_ARM) -shared -fPIC $(CFLAGS) $< -o $@ $(LFLAGS) -lpthread
@@ -26,6 +26,9 @@ client: src/client/client.c
 web: web/webserver.c
 	  $(CC) -Wall $< -o web/webserver
 
+cross/webserver: web/webserver.c
+	$(CC_ARM) $< -o cross/webserver
+
 stop:
 	-ssh $(PI_USER)@$(PI_HOST) "sudo kill \$$(cat /tmp/tcpserver.pid) 2>/dev/null"
 
@@ -38,4 +41,4 @@ run: client web
 	stty susp "^Z"; \
 	kill %1 2>/dev/null
 clean:
-	  rm -f client web/webserver cross/server cross/libdev_*.so
+	  rm -f client web/webserver cross/server cross/webserver cross/libdev_*.so
