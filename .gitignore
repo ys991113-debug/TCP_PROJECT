@@ -11,3 +11,4 @@ web/webserver
 cross/server
 cross/libdev_*.so
 .*.swp
+cross/webserver
