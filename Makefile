@@ -30,6 +30,7 @@ cross/webserver: web/webserver.c
 	$(CC_ARM) $< -o cross/webserver
 
 deploy: cross
+	ssh $(PI_USER)@$(PI_HOST) "mkdir -p $(PI_DIR)/lib $(PI_DIR)/web"
 	scp cross/server $(PI_USER)@$(PI_HOST):$(PI_DIR)/
 	scp cross/libdev_*.so $(PI_USER)@$(PI_HOST):$(PI_DIR)/lib/
 	scp cross/webserver $(PI_USER)@$(PI_HOST):$(PI_DIR)/
