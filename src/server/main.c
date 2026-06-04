@@ -21,6 +21,16 @@ int  load_device(const char *path);
 int  dispatch(const msg_t *msg, char *resp, size_t n);
 void unload_all(void);
 int  parse_request(const char *json, char *cmd, char *state, char *level,int *value,int *id);
+  
+void on_sigterm(int s) {
+      (void)s;
+      unload_all();
+      remove("/tmp/tcpserver.pid");
+      printf("[daemon] 종료\n");
+      fflush(stdout);
+      exit(0);
+  }
+
 
   void daemonize(void) {
       pid_t pid = fork();
@@ -46,6 +56,10 @@ int  parse_request(const char *json, char *cmd, char *state, char *level,int *va
       // PID 파일
       FILE *f = fopen("/tmp/tcpserver.pid", "w");
       if (f) { fprintf(f, "%d\n", getpid()); fclose(f); }
+
+        struct sigaction sa = {0};
+        sa.sa_handler = on_sigterm;
+        sigaction(SIGTERM, &sa, NULL);
 
       printf("[daemon] 시작 PID=%d\n", getpid());
       fflush(stdout);

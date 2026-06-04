@@ -26,6 +26,9 @@ client: src/client/client.c
 web: web/webserver.c
 	  $(CC) -Wall $< -o web/webserver
 
+stop:
+	-ssh $(PI_USER)@$(PI_HOST) "sudo kill \$$(cat /tmp/tcpserver.pid) 2>/dev/null"
+
 run: client web
 	web/webserver $(PI_HOST) & \
 	sleep 1 && \
