@@ -4,7 +4,7 @@ PI_DIR  ?= /home/lys/project
 CC_ARM  = aarch64-linux-gnu-gcc
 CC      = gcc
 CFLAGS  = -Iinclude -Icross/include
-LFLAGS  = -Lcross/lib -lwiringPi -Wl,-rpath,/usr/lib
+LFLAGS  = -Lcross/lib -lwiringPi -Wl,-rpath,/usr/lib -Wl,--allow-shlib-undefined -Wl,--unresolved-symbols=ignore-in-shared-libs
 DEVICES = led light seg buzzer
 SOS     = $(addprefix cross/libdev_,$(addsuffix .so,$(DEVICES)))
 
