@@ -1,0 +1,196 @@
+  ========================================================
+   TCP 원격 장치 제어 프로그램 - 실행 과정
+   작성자: 이윤상
+  ========================================================
+
+
+  [1] 빌드 (우분투, 크로스 컴파일)
+  --------------------------------------------------------
+  $ cd ~/TCP_PROJECT
+  $ make
+  aarch64-linux-gnu-gcc -shared -fPIC ... src/devices/led.c    -o cross/libdev_led.so
+  aarch64-linux-gnu-gcc -shared -fPIC ... src/devices/light.c  -o cross/libdev_light.so
+  aarch64-linux-gnu-gcc -shared -fPIC ... src/devices/seg.c    -o cross/libdev_seg.so
+  aarch64-linux-gnu-gcc -shared -fPIC ... src/devices/buzzer.c -o cross/libdev_buzzer.so
+  aarch64-linux-gnu-gcc ... src/server/main.c src/server/proto.c src/server/loader.c -o
+  cross/server
+  aarch64-linux-gnu-gcc web/webserver.c -o cross/webserver
+  gcc -Iinclude src/client/client.c -o client
+
+  $ file cross/server
+  cross/server: ELF 64-bit LSB pie executable, ARM aarch64
+
+
+  [2] 라파로 배포 (우분투 -> 라파)
+  --------------------------------------------------------
+  $ scp cross/server     lys@100.83.88.7:~/project/
+  $ scp cross/libdev_*.so lys@100.83.88.7:~/project/lib/
+  $ scp cross/webserver  lys@100.83.88.7:~/project/
+  $ scp web/index.html   lys@100.83.88.7:~/project/web/
+
+
+  [3] 서버 + 웹서버 실행 (라파)
+  --------------------------------------------------------
+  $ cd ~/project
+  $ sudo ./server
+  [daemon] 시작 PID=427735
+  [LED] 초기화 완료 (softPwm)
+  [loader] LED 로드 완료
+  [LIGHT] 초기화 완료
+  [loader] LIGHT 로드 완료
+  [SEG] 초기화 완료
+  [loader] SEG 로드 완료
+  [BUZZER] 초기화 완료
+  [loader] BUZZER 로드 완료
+  서버 시작 → 포트 1833
+  ( ./server 실행 즉시 프롬프트 복귀 = 데몬화 정상 )
+
+  $ ./webserver 127.0.0.1 &
+  epoll 웹서버 시작 -> http://localhost:8080/
+
+
+  [4] CLI 클라이언트 - 장치별 기본 동작 (우분투)
+  --------------------------------------------------------
+  $ ./client 100.83.88.7
+  서버 연결됨 [100.83.88.7:1833]
+
+  선택 > 1
+  응답: {"ok":true,"cmd":"LED","data":{"state":"ON","bright":"HIGH"},"id":1}
+
+  선택 > 2
+  응답: {"ok":true,"cmd":"LED","data":{"state":"ON","bright":"MID"},"id":2}
+
+  선택 > 3
+  응답: {"ok":true,"cmd":"LED","data":{"state":"ON","bright":"LOW"},"id":3}
+
+  선택 > 4
+  응답: {"ok":true,"cmd":"LED","data":{"state":"OFF"},"id":4}
+
+  선택 > 5
+  응답: {"ok":true,"cmd":"LIGHT","data":{"value":147},"id":5}
+
+  선택 > 6
+  숫자(0~9) > 5
+  응답: {"ok":true,"cmd":"SEG","data":{"value":5},"id":6}
+
+  선택 > 7
+  응답: {"ok":true,"cmd":"BUZZER","data":{"state":"ON"},"id":7}
+
+  선택 > 8
+  응답: {"ok":true,"cmd":"BUZZER","data":{"state":"OFF"},"id":8}
+
+  선택 > 9
+  카운트다운(0~9) > 9
+  응답: {"ok":true,"cmd":"COUNTDOWN","data":{"value":9},"id":9}
+  ( 7세그먼트 9 → 0 카운트다운 후 0 도달 시 부저 울림 )
+
+
+  [5] 시그널 처리 (우분투)
+  --------------------------------------------------------
+  ( 클라이언트 실행 중 )
+   Ctrl+Z  입력 -> 무시됨 (정지 안 됨)
+   Ctrl+\  입력 -> 무시됨 (종료 안 됨)
+   Ctrl+C  입력 -> "종료합니다." 출력 후 정상 종료
+  ( 요구사항: INT 신호에만 종료 - 충족 )
+
+
+  [6] 다중 클라이언트 동시 접속
+  --------------------------------------------------------
+  ( 웹과 CLI가 동시에 서버에 접속 - 서버는 클라이언트 종류를
+    구분하지 않고 동일 JSON 프로토콜로 처리 )
+
+  [서버 로그]
+  클라이언트 접속: 127.0.0.1            <- 웹서버(조도 폴링)
+  수신: {"v":1,"cmd":"LIGHT","args":{},"id":1}
+  클라이언트 접속: 100.115.37.33        <- CLI 클라이언트
+  수신: {"v":1,"cmd":"LED","args":{"state":"ON","level":"HIGH"},"id":1}
+
+  ( 두 클라이언트의 명령이 충돌 없이 순차 처리됨 )
+
+
+  [7] Last-Write-Wins (다중 제어 정상 동작)
+  --------------------------------------------------------
+  ( 웹에서 LED ON )
+   웹 -> {"cmd":"LED","args":{"state":"ON","level":"HIGH"}}
+      -> {"ok":true,...,"bright":"HIGH"}   (LED 켜짐)
+
+  ( CLI에서 LED OFF )
+   CLI -> {"cmd":"LED","args":{"state":"OFF"}}
+       -> {"ok":true,...,"state":"OFF"}    (LED 꺼짐)
+
+  => 나중 명령이 반영됨 (정상). dispatch_mutex로 GPIO 동시
+     접근은 보호되며, 순차 명령은 마지막 명령이 적용된다.
+
+
+  [8] 동기화 - 카운트다운 중복 방지 (Semaphore)
+  --------------------------------------------------------
+  (터미널1) {"v":1,"cmd":"COUNTDOWN","args":{"value":9},"id":1}
+   -> {"ok":true,"cmd":"COUNTDOWN","data":{"value":9},"id":1}
+      (카운트다운 진행 시작)
+
+  (터미널2, 진행 중 재요청) {"v":1,"cmd":"COUNTDOWN","args":{"value":9},"id":1}
+   -> {"ok":false,"cmd":"COUNTDOWN","error":"BUSY",
+       "message":"카운트다운 진행 중","id":1}
+
+  => 세마포어(초기값 1)로 동시에 1개의 카운트다운만 실행.
+
+
+  [9] 동기화 - AUTO 모드 중복 방지 (Mutex)
+  --------------------------------------------------------
+  (AUTO ON 두 번 연속 요청)
+   1차 -> {"ok":true,"cmd":"AUTO","data":{"state":"ON"}}  (스레드 생성)
+   2차 -> {"ok":true,"cmd":"AUTO","data":{"state":"ON"}}  (이미 실행 중,
+          auto_mutex로 보호되어 스레드 중복 생성 안 함)
+
+  [서버 로그] - AUTO 스레드는 1개만 동작 (1초에 1회 출력)
+  [AUTO] light=150
+  [AUTO] light=211   <- 센서 가림 -> LED 자동 ON
+  [AUTO] light=148   <- 밝아짐   -> LED 자동 OFF
+
+
+  [10] AUTO 모드 동작 (조도 -> LED 자동 제어)
+  --------------------------------------------------------
+  선택 > 10
+  응답: {"ok":true,"cmd":"AUTO","data":{"state":"ON"},"id":10}
+   ( 센서 가림 -> 조도값 상승 -> LED 자동 ON )
+   ( 밝아짐    -> 조도값 하락 -> LED 자동 OFF )
+
+  선택 > 11
+  응답: {"ok":true,"cmd":"AUTO","data":{"state":"OFF"},"id":11}
+
+
+  [11] 웹 인터페이스 (브라우저)
+  --------------------------------------------------------
+  접속: http://100.83.88.7:8080/   (tailscale, 어디서든 접속)
+
+   - 조도값 실시간 그래프 (1초 갱신)
+   - LED 최대/중간/최저/OFF 버튼
+   - 부저 ON/OFF 버튼
+   - 카운트다운 / 7세그먼트 버튼
+   - AUTO 모드 ON/OFF 버튼
+
+
+  [12] 잘못된 요청 처리 (에러 응답)
+  --------------------------------------------------------
+  ( 잘못된 JSON )
+   -> {"ok":false,"error":"BAD_JSON","id":0}
+
+  ( 정의되지 않은 명령 )
+   {"v":1,"cmd":"XXX","args":{},"id":1}
+   -> {"ok":false,"cmd":"XXX","error":"UNKNOWN_CMD","id":1}
+
+  ( 잘못된 인자 )
+   {"v":1,"cmd":"SEG","args":{"value":99},"id":1}
+   -> {"ok":false,"cmd":"SEG","error":"BAD_ARG",
+       "message":"value must be 0~9","id":1}
+
+
+  [13] 서버 종료
+  --------------------------------------------------------
+  $ make stop
+   -> ssh로 라파 서버 데몬에 SIGTERM 전달
+   -> [daemon] 종료 (자원/.so 정리 후 안전 종료)
+
+  ========================================================
+   실행 과정 끝
+  ========================================================
