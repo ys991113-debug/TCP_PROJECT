@@ -26,8 +26,13 @@ client: src/client/client.c
 web: web/webserver.c
 	  $(CC) -Wall $< -o web/webserver
 
-run: client
-	  stty susp undef; exec ./client $(PI_HOST); stty susp "^Z"
-
+run: client web
+	web/webserver $(PI_HOST) & \
+	sleep 1 && \
+	xdg-open http://localhost:8080/ & \
+	sleep 1 && \
+	stty susp undef && ./client $(PI_HOST); \
+	stty susp "^Z"; \
+	kill %1 2>/dev/null
 clean:
 	  rm -f client web/webserver cross/server cross/libdev_*.so

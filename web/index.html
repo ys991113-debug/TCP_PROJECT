@@ -1,4 +1,4 @@
- <!DOCTYPE html>
+<!DOCTYPE html>
   <html>
   <head>
   <meta charset="UTF-8">
@@ -6,90 +6,43 @@
   <script src="https://unpkg.com/chart.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      background: #1a1a2e;
-      color: #eee;
-      font-family: Arial, sans-serif;
-      padding: 20px;
-    }
-    h1 {
-      text-align: center;
-      color: #ffcc00;
-      margin-bottom: 20px;
-      font-size: 24px;
-    }
-    .graph-box {
-      background: #16213e;
-      border-radius: 12px;
-      padding: 20px;
-      margin-bottom: 24px;
-      text-align: center;
-    }
+    body { background: #1a1a2e; color: #eee; font-family: Arial, sans-serif;
+  padding: 20px; }
+    h1 { text-align: center; color: #ffcc00; margin-bottom: 20px; font-size: 24px;
+  }
+    .graph-box { background: #16213e; border-radius: 12px; padding: 20px;
+  margin-bottom: 24px; text-align: center; }
     #status { color: #aaa; margin-bottom: 6px; font-size: 14px; }
-    #value  { font-size: 56px; color: #ffcc00; font-weight: bold;
-  margin-bottom: 10px; }
-    .control-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 16px;
-    }
-    .card {
-      background: #16213e;
-      border-radius: 12px;
-      padding: 18px;
-    }
-    .card h3 {
-      color: #ffcc00;
-      margin-bottom: 12px;
-      font-size: 16px;
-      border-bottom: 1px solid #333;
-      padding-bottom: 8px;
-    }
-    .btn-group { display: flex; flex-wrap: wrap; gap: 8px; align-items:
-  center; }
-    button {
-      padding: 8px 16px;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      font-size: 14px;
-      font-weight: bold;
-      transition: opacity 0.2s;
-    }
+    #value { font-size: 56px; color: #ffcc00; font-weight: bold; margin-bottom:
+  10px; }
+    .control-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .card { background: #16213e; border-radius: 12px; padding: 18px; }
+    .card h3 { color: #ffcc00; margin-bottom: 12px; font-size: 16px; border-bottom:
+  1px solid #333; padding-bottom: 8px; }
+    .btn-group { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    button { padding: 8px 16px; border: none; border-radius: 8px; cursor: pointer;
+  font-size: 14px; font-weight: bold; transition: opacity 0.2s; }
     button:hover { opacity: 0.8; }
     .btn-on  { background: #ffcc00; color: #1a1a2e; }
-    .btn-off { background: #444;    color: #eee; }
+    .btn-off { background: #444; color: #eee; }
     .btn-hi  { background: #ff6b6b; color: #fff; }
     .btn-mid { background: #ffa94d; color: #fff; }
     .btn-low { background: #74c0fc; color: #1a1a2e; }
-    input[type=number] {
-      width: 60px; padding: 8px;
-      border-radius: 8px; border: none;
-      font-size: 16px; text-align: center;
-    }
-    #result {
-      grid-column: 1 / -1;
-      background: #16213e;
-      border-radius: 12px;
-      padding: 14px 18px;
-      font-size: 15px;
-      color: #ffcc00;
-      min-height: 46px;
-    }
+    input[type=number] { width: 60px; padding: 8px; border-radius: 8px; border:
+  none; font-size: 16px; text-align: center; }
+    #result { grid-column: 1 / -1; background: #16213e; border-radius: 12px;
+  padding: 14px 18px; font-size: 15px; color: #ffcc00; min-height: 46px; }
     .hint { color: #aaa; font-size: 12px; margin-top: 8px; }
   </style>
   </head>
   <body>
   <h1>🌐 원격 장치 제어 시스템</h1>
-
   <div class="graph-box">
     <p id="status">연결 중...</p>
     <div id="value">-</div>
     <canvas id="chart" height="120"></canvas>
   </div>
-
   <div class="control-grid">
-
     <div class="card">
       <h3>💡 LED</h3>
       <div class="btn-group">
@@ -99,7 +52,6 @@
         <button class="btn-off" onclick="ctrl('/led/off')">OFF</button>
       </div>
     </div>
-
     <div class="card">
       <h3>🔔 부저</h3>
       <div class="btn-group">
@@ -107,60 +59,50 @@
         <button class="btn-off" onclick="ctrl('/buzzer/off')">OFF</button>
       </div>
     </div>
-
     <div class="card">
       <h3>⏱ 카운트다운</h3>
       <div class="btn-group">
         <input id="cd-val" type="number" min="0" max="9" value="9">
-        <button class="btn-on"
-
-  onclick="ctrl('/countdown/'+document.getElementById('cd-val').value)">
-          시작
-        </button>
+        <button class="btn-on" onclick="ctrl('/countdown/'+document.getElementById(
+  'cd-val').value)">시작</button>
       </div>
       <p class="hint">0 도달 시 부저 자동 울림</p>
     </div>
-
     <div class="card">
       <h3>🔢 7세그먼트</h3>
       <div class="btn-group">
         <input id="seg-val" type="number" min="0" max="9" value="0">
         <button class="btn-on"
-          onclick="ctrl('/seg/'+document.getElementById('seg-val').value)">
-          표시
-        </button>
+  onclick="ctrl('/seg/'+document.getElementById('seg-val').value)">표시</button>
       </div>
       <p class="hint">숫자 0~9 직접 표시</p>
     </div>
-
+    <div class="card">
+      <h3>🤖 AUTO 모드</h3>
+      <div class="btn-group">
+        <button class="btn-on"  onclick="ctrl('/auto/on')">ON</button>
+        <button class="btn-off" onclick="ctrl('/auto/off')">OFF</button>
+      </div>
+      <p class="hint">어두우면 LED 자동 ON</p>
+    </div>
     <div id="result">대기 중...</div>
-
   </div>
-
   <script>
   const sEl = document.getElementById('status');
   const vEl = document.getElementById('value');
   const labels = [], data = [];
-  const chart = new Chart(
-    document.getElementById('chart').getContext('2d'), {
+  const chart = new Chart(document.getElementById('chart').getContext('2d'), {
     type: 'line',
-    data: { labels, datasets: [{
-      label: '조도값', data,
-      borderColor: '#ffcc00',
-      backgroundColor: 'rgba(255,204,0,0.1)',
-      tension: 0.3, fill: true
-    }]},
-    options: {
-      animation: false,
+    data: { labels, datasets: [{ label: '조도값', data, borderColor: '#ffcc00',
+  backgroundColor: 'rgba(255,204,0,0.1)', tension: 0.3, fill: true }]},
+    options: { animation: false,
       plugins: { legend: { labels: { color: '#eee' } } },
       scales: {
-        y: { min:0, max:255,
-             ticks:{ color:'#aaa' }, grid:{ color:'#333' } },
+        y: { min:0, max:255, ticks:{ color:'#aaa' }, grid:{ color:'#333' } },
         x: { ticks:{ color:'#aaa' }, grid:{ color:'#333' } }
       }
     }
   });
-
   async function poll() {
     try {
       const r = await (await fetch('/light')).json();
@@ -174,18 +116,20 @@
       }
     } catch { sEl.textContent = '❌ 연결 안됨'; }
   }
-
   async function ctrl(path) {
     const el = document.getElementById('result');
     el.textContent = '처리 중...';
     try {
-      const r = await (await fetch(path)).json();
+      const res = await fetch(path);
+      const text = await res.text();
+      const r = JSON.parse(text.trim());
       el.textContent = r.ok
         ? '✅ ' + r.cmd + ' 완료'
         : '❌ 오류: ' + r.error;
-    } catch { el.textContent = '❌ 서버 연결 실패'; }
+    } catch(e) {
+      el.textContent = '❌ 오류: ' + e.message;
+    }
   }
-
   setInterval(poll, 1000);
   </script>
   </body>

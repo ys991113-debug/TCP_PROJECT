@@ -8,8 +8,9 @@
   #include <netinet/in.h>
   #include <arpa/inet.h>
 
+  static const char *RIP = "100.83.88.7";
+
   #define HPORT 8080
-  #define RIP "100.83.88.7"
   #define RPORT 1833
   #define MAX_EVENTS 64
 
@@ -43,7 +44,7 @@
   }
 
   void send_index(int c) {
-      FILE *f = fopen("index.html", "rb");
+      FILE *f = fopen("web/index.html", "rb");
       if (!f) return;
       fseek(f, 0, SEEK_END);
       long sz = ftell(f);
@@ -74,21 +75,26 @@
       send(c, r, strlen(r), 0);
   }
 
-  void send_cmd(int c, const char *json) {
+ void send_cmd(int c, const char *json) {
+      char err[] =
+          "HTTP/1.1 200 OK\r\n"
+          "Content-Type: application/json\r\n"
+          "Content-Length: 12\r\n\r\n"
+          "{\"ok\":false}";
       int s = socket(AF_INET, SOCK_STREAM, 0);
-      if (s < 0) return;
+      if (s < 0) { send(c, err, strlen(err), 0); return; }
       struct sockaddr_in a;
       a.sin_family = AF_INET;
       a.sin_port = htons(RPORT);
       a.sin_addr.s_addr = inet_addr(RIP);
       memset(&a.sin_zero, 0, 8);
       if (connect(s, (void*)&a, sizeof(a)) < 0) {
-          close(s); return;
+          close(s); send(c, err, strlen(err), 0); return;
       }
       send(s, json, strlen(json), 0);
       char v[512]; int n = recv(s, v, sizeof(v)-1, 0);
       close(s);
-      if (n <= 0) return;
+      if (n <= 0) { send(c, err, strlen(err), 0); return; }
       v[n] = 0;
       char *nl = strchr(v, '\n'); if (nl) *nl = 0;
       char r[1100];
@@ -152,12 +158,23 @@
                   "\"args\":{\"value\":%d},\"id\":1}\n", v);
               send_cmd(c, json);
           }
-      } else {
+    } else if(strcmp(p, "/auto/on") == 0){
+         send_cmd(c,
+          "{\"v\":1,\"cmd\":\"AUTO\","
+          "\"args\":{\"state\":\"ON\"},\"id\":1}\n");
+        } else if (strcmp(p, "/auto/off") == 0) {
+        send_cmd(c,
+        "{\"v\":1,\"cmd\":\"AUTO\","
+        "\"args\":{\"state\":\"OFF\"},\"id\":1}\n");
+
+      }else {
           send_index(c);
       }
   }
 
-  int main(void) {
+  int main(int argc,char *argv[]) {
+
+      if (argc >= 2) RIP = argv[1];
       int sfd = socket(AF_INET, SOCK_STREAM, 0);
       int opt = 1;
       setsockopt(sfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));

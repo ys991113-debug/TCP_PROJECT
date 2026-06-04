@@ -8,3 +8,6 @@ lib/*.so
 
 /client
 web/webserver
+cross/server
+cross/libdev_*.so
+.*.swp
