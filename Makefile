@@ -8,7 +8,7 @@ LFLAGS  = -Lcross/lib -lwiringPi -Wl,-rpath,/usr/lib -Wl,--allow-shlib-undefined
 DEVICES = led light seg buzzer
 SOS     = $(addprefix cross/libdev_,$(addsuffix .so,$(DEVICES)))
 
-.PHONY: all cross client web clean run
+.PHONY: all cross client web clean run deploy stop
 
 all: cross client web
 
@@ -18,7 +18,7 @@ cross/libdev_%.so: src/devices/%.c
 	  $(CC_ARM) -shared -fPIC $(CFLAGS) $< -o $@ $(LFLAGS) -lpthread
 
 cross/server: src/server/main.c src/server/proto.c src/server/loader.c
-	  $(CC_ARM) $(CFLAGS) $^ -o $@ $(LFLAGS) -lpthread -ldl
+	$(CC_ARM) $(CFLAGS) src/server/main.c src/server/proto.c src/server/loader.c -o $@ $(LFLAGS) -lpthread -ldl
 
 client: src/client/client.c
 	  $(CC) -Iinclude $< -o client
@@ -28,6 +28,13 @@ web: web/webserver.c
 
 cross/webserver: web/webserver.c
 	$(CC_ARM) $< -o cross/webserver
+
+deploy: cross
+	scp cross/server $(PI_USER)@$(PI_HOST):$(PI_DIR)/
+	scp cross/libdev_*.so $(PI_USER)@$(PI_HOST):$(PI_DIR)/lib/
+	scp cross/webserver $(PI_USER)@$(PI_HOST):$(PI_DIR)/
+	scp web/index.html $(PI_USER)@$(PI_HOST):$(PI_DIR)/web/
+	ssh $(PI_USER)@$(PI_HOST) "sudo fuser -k 1833/tcp 8080/tcp 2>/dev/null; cd $(PI_DIR) && sudo ./server"
 
 stop:
 	-ssh $(PI_USER)@$(PI_HOST) "sudo kill \$$(cat /tmp/tcpserver.pid) 2>/dev/null"

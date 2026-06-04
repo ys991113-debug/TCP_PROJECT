@@ -11,6 +11,7 @@
 #include <sys/stat.h>
 #include <signal.h>
 #include <semaphore.h>
+#include <libgen.h>
 #include "../../include/device.h"
 
   #define PORT 1833
@@ -37,14 +38,14 @@ void on_sigterm(int s) {
   }
 
 
-  void daemonize(void) {
+  void daemonize(const char *workdir) {
       pid_t pid = fork();
       if (pid < 0) exit(1);
       if (pid > 0) exit(0);       // 부모 종료
 
       setsid();                    // 새 세션
       signal(SIGHUP, SIG_IGN);
-      chdir("/home/lys/project");                  // 루트로 이동
+      chdir(workdir);                   // 루트로 이동
 
       // stdin → /dev/null
       int fd = open("/dev/null", O_RDWR);
@@ -220,15 +221,26 @@ int main(void) {
     struct sockaddr_in server_addr, client_addr;
     socklen_t sin_size;
     pthread_t tid;
-
+    char exe[512], base[512], libpath[512];
+    readlink("/proc/self/exe", exe, sizeof(exe));
+    strncpy(base, dirname(exe), sizeof(base));
     sem_init(&countdown_sem, 0, 1);
-    daemonize();
+    daemonize(base);
+    pid_t web_pid = fork();
+    if (web_pid == 0) {
+        execl("./webserver", "./webserver", "127.0.0.1", NULL);
+        exit(1);
+    }
     wiringPiSetup();
     // .so 로드
-    load_device("/home/lys/project/lib/libdev_led.so");
-    load_device("/home/lys/project/lib/libdev_light.so");
-    load_device("/home/lys/project/lib/libdev_seg.so");
-    load_device("/home/lys/project/lib/libdev_buzzer.so");
+    snprintf(libpath, sizeof(libpath), "%s/lib/libdev_led.so",    base);
+    load_device(libpath);
+    snprintf(libpath, sizeof(libpath), "%s/lib/libdev_light.so",  base);
+    load_device(libpath);
+    snprintf(libpath, sizeof(libpath), "%s/lib/libdev_seg.so",    base);
+    load_device(libpath);
+    snprintf(libpath, sizeof(libpath), "%s/lib/libdev_buzzer.so", base);
+    load_device(libpath);
 
     if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
         perror("socket"); exit(1);
