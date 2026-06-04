@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <dlfcn.h>
+ #include <pthread.h>
 #include "../../include/device.h"
 
 #define MAX_DEVICES 10
@@ -44,18 +45,25 @@ int load_device(const char *path) {
     return 0;
 }
 
-// cmd로 디바이스 찾아서 handle 호출
-int dispatch(const msg_t *msg, char *resp, size_t n) {
-    for(int i = 0; i < dev_count; i++) {
-        if(strcmp(devices[i].dev_name(), msg->cmd) == 0) {
-            return devices[i].dev_handle(msg, resp, n);
-        }
-    }
-    snprintf(resp, n,
-        "{\"ok\":false,\"cmd\":\"%s\",\"error\":\"UNKNOWN_CMD\",\"id\":%d}\n",
-        msg->cmd, msg->id);
-    return -1;
-}
+  extern pthread_mutex_t dispatch_mutex;
+
+  int dispatch(const msg_t *msg, char *resp, size_t n) {
+      pthread_mutex_lock(&dispatch_mutex);
+      int result = -1;
+      for(int i = 0; i < dev_count; i++) {
+          if(strcmp(devices[i].dev_name(), msg->cmd) == 0) {
+              result = devices[i].dev_handle(msg, resp, n);
+              pthread_mutex_unlock(&dispatch_mutex);
+              return result;
+          }
+      }
+      snprintf(resp, n,
+          "{\"ok\":false,\"cmd\":\"%s\","
+          "\"error\":\"UNKNOWN_CMD\",\"id\":%d}\n",
+          msg->cmd, msg->id);
+      pthread_mutex_unlock(&dispatch_mutex);
+      return result;
+  }
 
 void unload_all(void) {
     for(int i = 0; i < dev_count; i++) {

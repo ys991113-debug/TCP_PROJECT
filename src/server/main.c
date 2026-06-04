@@ -10,9 +10,14 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <signal.h>
+#include <semaphore.h>
 #include "../../include/device.h"
 
   #define PORT 1833
+  static pthread_mutex_t auto_mutex = PTHREAD_MUTEX_INITIALIZER;
+  pthread_mutex_t dispatch_mutex = PTHREAD_MUTEX_INITIALIZER;
+  static sem_t countdown_sem;
+
   #define LIGHT_THRESHOLD 180
   static volatile int auto_running = 0;
 
@@ -109,7 +114,7 @@ void *countdown_thread(void *arg) {
       strcpy(m.cmd, "BUZZER");
       strcpy(m.state, "ON");
       dispatch(&m, resp, sizeof(resp));
-
+      sem_post(&countdown_sem);
       return NULL;
 }
 
@@ -141,18 +146,22 @@ void *handle_client(void *arg) {
         }
 
         if(strcmp(msg.cmd, "AUTO") == 0) {
-            if(strcmp(msg.state, "ON") == 0) {
-                if(!auto_running) {
-                    auto_running = 1;
-                    pthread_t at;
-                    pthread_create(&at, NULL, auto_thread, NULL);
-                    pthread_detach(at);
-                  }
+             if(strcmp(msg.state, "ON") == 0) {
+              pthread_mutex_lock(&auto_mutex);
+            if(!auto_running) {
+                auto_running = 1;
+                pthread_t at;
+                pthread_create(&at, NULL, auto_thread, NULL);
+                pthread_detach(at);
+              }
+                pthread_mutex_unlock(&auto_mutex);
                   snprintf(resp, sizeof(resp),
                       "{\"ok\":true,\"cmd\":\"AUTO\","
                       "\"data\":{\"state\":\"ON\"},\"id\":%d}\n", msg.id);
               } else if(strcmp(msg.state, "OFF") == 0) {
-                  auto_running = 0;
+                    pthread_mutex_lock(&auto_mutex);
+                    auto_running = 0;
+                    pthread_mutex_unlock(&auto_mutex);
                   snprintf(resp, sizeof(resp),
                       "{\"ok\":true,\"cmd\":\"AUTO\","
                       "\"data\":{\"state\":\"OFF\"},\"id\":%d}\n", msg.id);
@@ -176,15 +185,23 @@ void *handle_client(void *arg) {
                 send(client_fd, resp, strlen(resp), 0);
                 continue;
             }
-              int *sec = malloc(sizeof(int));
-              *sec = msg.value;
-              pthread_t ct;
-              pthread_create(&ct, NULL, countdown_thread, sec);
-              pthread_detach(ct);
-
-              snprintf(resp, sizeof(resp),
-                  "{\"ok\":true,\"cmd\":\"COUNTDOWN\",\"data\":{\"value\":%d},\"id\":%d}\n",
-                  msg.value, msg.id);
+            if(sem_trywait(&countdown_sem) == 0) {
+            int *sec = malloc(sizeof(int));
+            *sec = msg.value;
+            pthread_t ct;
+            pthread_create(&ct, NULL, countdown_thread, sec);
+            pthread_detach(ct);
+            snprintf(resp, sizeof(resp),
+            "{\"ok\":true,\"cmd\":\"COUNTDOWN\","
+            "\"data\":{\"value\":%d},\"id\":%d}\n",
+            msg.value, msg.id);
+            } else {
+                snprintf(resp, sizeof(resp),
+                    "{\"ok\":false,\"cmd\":\"COUNTDOWN\","
+                    "\"error\":\"BUSY\","
+                    "\"message\":\"카운트다운 진행 중\","
+                    "\"id\":%d}\n", msg.id);
+            }
               send(client_fd, resp, strlen(resp), 0);
               continue;
           }
@@ -194,6 +211,7 @@ void *handle_client(void *arg) {
         send(client_fd, resp, strlen(resp), 0);
     }
     close(client_fd);
+    
     return NULL;
 }
 
@@ -203,6 +221,7 @@ int main(void) {
     socklen_t sin_size;
     pthread_t tid;
 
+    sem_init(&countdown_sem, 0, 1);
     daemonize();
     wiringPiSetup();
     // .so 로드
