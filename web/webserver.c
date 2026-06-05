@@ -172,9 +172,9 @@
       }
   }
 
-  int main(int argc,char *argv[]) {
+  int main(void) {
 
-      if (argc >= 2) RIP = argv[1];
+   
       int sfd = socket(AF_INET, SOCK_STREAM, 0);
       int opt = 1;
       setsockopt(sfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
@@ -183,7 +183,7 @@
       struct sockaddr_in a;
       a.sin_family = AF_INET;
       a.sin_port = htons(HPORT);
-      a.sin_addr.s_addr = htonl(INADDR_ANY);
+      a.sin_addr.s_addr = inet_addr(RIP);
       memset(&a.sin_zero, 0, 8);
 
       if (bind(sfd, (void*)&a, sizeof(a)) < 0) {
@@ -197,7 +197,7 @@
       ev.data.fd = sfd;
       epoll_ctl(epfd, EPOLL_CTL_ADD, sfd, &ev);
 
-      printf("epoll 웹서버 시작 -> http://localhost:%d/\n", HPORT);
+      printf("epoll 웹서버 시작 -> http://%s:%d/\n", RIP, HPORT);
       fflush(stdout);
 
       while (1) {
