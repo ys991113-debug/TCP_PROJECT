@@ -10,7 +10,7 @@ SOS     = $(addprefix cross/libdev_,$(addsuffix .so,$(DEVICES)))
 
 .PHONY: all cross client web clean run deploy stop
 
-all: cross client web deploy
+all: cross client web deploy run
 
 cross: $(SOS) cross/server cross/webserver
 
@@ -35,17 +35,12 @@ deploy: cross
 	scp cross/libdev_*.so $(PI_USER)@$(PI_HOST):$(PI_DIR)/lib/
 	scp cross/webserver $(PI_USER)@$(PI_HOST):$(PI_DIR)/
 	scp web/index.html $(PI_USER)@$(PI_HOST):$(PI_DIR)/web/
+	ssh -t $(PI_USER)@$(PI_HOST) "cd $(PI_DIR) && sudo ./server"
 
 stop:
 	-ssh $(PI_USER)@$(PI_HOST) "sudo kill \$$(cat /tmp/tcpserver.pid) 2>/dev/null"
 
-run: client web
-	web/webserver $(PI_HOST) & \
-	sleep 1 && \
-	xdg-open http://localhost:8080/ & \
-	sleep 1 && \
-	stty susp undef && ./client $(PI_HOST); \
-	stty susp "^Z"; \
-	kill %1 2>/dev/null
+run: client
+        stty susp undef && ./client $(PI_HOST); stty susp "^Z"
 clean:
 	  rm -f client web/webserver cross/server cross/webserver cross/libdev_*.so
