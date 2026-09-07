@@ -41,6 +41,6 @@ stop:
 	-ssh $(PI_USER)@$(PI_HOST) "sudo kill \$$(cat /tmp/tcpserver.pid) 2>/dev/null"
 
 run: client
-        stty susp undef && ./client $(PI_HOST); stty susp "^Z"
+	stty susp undef && ./client $(PI_HOST); stty susp "^Z"
 clean:
 	  rm -f client web/webserver cross/server cross/webserver cross/libdev_*.so
